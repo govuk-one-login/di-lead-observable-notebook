@@ -1,6 +1,7 @@
 # DI Lead Dev Observable Notebook
 
-This is an [Observable Framework](https://observablehq.com/framework) project. To start the local preview server, run:
+This is an [Observable Framework](https://observablehq.com/framework) project to help Lead Developers in the DI program better survey their estate.
+To start the local preview server, run:
 
 ```
 npm run dev
