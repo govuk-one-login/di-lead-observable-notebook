@@ -6,7 +6,8 @@
     "build": "rimraf dist && observable build",
     "dev": "observable preview",
     "deploy": "observable deploy",
-    "observable": "observable"
+    "observable": "observable",
+    "build-github": "node src/data/github/repositories.js"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "3.600.0",

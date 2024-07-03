@@ -1,8 +1,13 @@
 # DI Lead Dev Observable Notebook
 
 This is an [Observable Framework](https://observablehq.com/framework) project to help Lead Developers in the DI program better survey their estate.
-To start the local preview server, run:
+To get started, populate some basic data with:
 
+```
+npm run build-github
+```
+
+then start observable with:
 ```
 npm run dev
 ```
