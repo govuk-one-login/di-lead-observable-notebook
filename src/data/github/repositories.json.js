@@ -43,7 +43,6 @@ const fetchRepositories = async () => {
 const main = async () => {
   const repos = await fetchRepositories();
   process.stdout.write(JSON.stringify(repos, null, 2))
-  console.log('Repositories data written to .observable cache');
 };
 
 // Run the main function
