@@ -39,16 +39,10 @@ const fetchRepositories = async () => {
   return allRepos;
 };
 
-// Function to write data to a file
-const writeToFile = (filename, data) => {
-  fs.writeFileSync(filename, JSON.stringify(data, null, 2));
-};
-
 // Main function to run the data loader
 const main = async () => {
   const repos = await fetchRepositories();
-  writeToFile('src/data/github/repositories.json', repos);
-  console.log('Repositories data written to src/data/github/repositories.json');
+  process.stdout.write(JSON.stringify(repos, null, 2))
 };
 
 // Run the main function
