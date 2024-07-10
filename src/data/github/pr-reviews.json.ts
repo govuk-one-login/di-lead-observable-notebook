@@ -25,6 +25,7 @@ type PrData = {
   merged_at: Date;
   first_reviewed: Date;
   author: string | undefined;
+  reviewer: string;
   created_hour?: number;
   created_day?: number;
   first_reviewed_hour?: number;
@@ -38,6 +39,10 @@ type PrData = {
   working_time_review_to_merge?: number;
   working_time_create_to_merge?: number;
   created_morning_or_afternoon?: "morning" | "afternoon";
+};
+type ReviewSummary = {
+  submitted_at: string;
+  reviewer: string;
 };
 
 const RestOcto = Octokit.plugin(restEndpointMethods, paginateRest);
@@ -59,7 +64,10 @@ const removeDependabotPrs = (prs: PrResponse): PrResponse => {
   return prs.filter((pr) => pr.user && pr.user.login !== "dependabot[bot]");
 };
 
-const getFirstReviewedforPr = async (pr: RawPrData, repo: string) => {
+const getFirstReviewforPr = async (
+  pr: RawPrData,
+  repo: string
+): Promise<ReviewSummary> => {
   const reviews = await octokit.rest.pulls.listReviews({
     owner: GITHUB_ORG,
     repo: repo,
@@ -76,8 +84,8 @@ const getFirstReviewedforPr = async (pr: RawPrData, repo: string) => {
       : current;
   });
 
-  if (first.submitted_at) {
-    return first.submitted_at;
+  if (first.submitted_at && first.user) {
+    return { submitted_at: first.submitted_at, reviewer: first.user?.login };
   } else {
     throw new Error(`No submitted reviews found for PR #${pr.number}`);
   }
@@ -85,13 +93,15 @@ const getFirstReviewedforPr = async (pr: RawPrData, repo: string) => {
 
 const getDataforPr = async (pr: RawPrData, repo: string): Promise<PrData> => {
   if (pr.merged_at) {
+    const review = await getFirstReviewforPr(pr, repo);
     return {
       repo,
       number: pr.number,
       created_at: new Date(pr.created_at),
       merged_at: new Date(pr.merged_at),
-      first_reviewed: new Date(await getFirstReviewedforPr(pr, repo)),
+      first_reviewed: new Date(review.submitted_at),
       author: pr.user?.login,
+      reviewer: review.reviewer,
     };
   } else {
     throw new Error(`No merge time found for PR #${pr.number}`);
