@@ -18,6 +18,7 @@ const MILLIS_IN_HOUR = 1000 * 60 * 60;
 const workingHoursToReview = pullRequests.map((pr) => ({
   number: pr.number,
   repo: pr.repo,
+  author: pr.author,
   created_morning_or_afternoon: pr.created_morning_or_afternoon,
   review_hours: Math.floor(pr.working_time_create_to_review / MILLIS_IN_HOUR),
 }));
@@ -44,6 +45,35 @@ display(
           {
             x: { thresholds: maxWorkingHours, value: "review_hours" },
             fill: "created_morning_or_afternoon",
+          }
+        )
+      ),
+      Plot.ruleY([0]),
+    ],
+  })
+);
+```
+
+## Time to review by PR author
+
+```js
+display(
+  Plot.plot({
+    width: 1000,
+    x: {
+      label: "Time taken for a PR to be reviewed (working hours)",
+      domain: [0, 50],
+    },
+    y: { grid: true, label: "Number of PRs" },
+    color: { legend: true, label: "PR opened in the" },
+    marks: [
+      Plot.rectY(
+        workingHoursToReview,
+        Plot.binX(
+          { y: "count" },
+          {
+            x: { thresholds: maxWorkingHours, value: "review_hours" },
+            fill: "author",
           }
         )
       ),
