@@ -5,7 +5,7 @@ export default {
 
   pages: [
     { name: "Repos", path: "/repos" },
-    { name: "Team PR review analysis", path: "/pr-reviews" },
+    { name: "Home team PR review analysis", path: "/home-team-pr-reviews" },
   ],
   
   // Content to add to the head of the page, e.g. for a favicon:

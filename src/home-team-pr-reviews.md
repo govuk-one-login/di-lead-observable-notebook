@@ -6,7 +6,7 @@ To change the list of repositories this pulls from, edit the `REPOS` constant in
 
 ```js
 const pullRequests = await FileAttachment(
-  "./data/github/pr-reviews.json"
+  "./data/github/home-team-pr-reviews.json"
 ).json();
 display(Inputs.table(pullRequests));
 ```
