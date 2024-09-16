@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "3.613.0",
-    "@aws-sdk/client-codepipeline": "3.613.0",
+    "@aws-sdk/client-codepipeline": "3.651.1",
     "@aws-sdk/client-ec2": "3.600.0",
     "@aws-sdk/client-ssm": "3.609.0",
     "@aws-sdk/credential-provider-sso": "3.609.0",
