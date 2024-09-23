@@ -14,7 +14,7 @@
     "@aws-sdk/client-codepipeline": "3.654.0",
     "@aws-sdk/client-ec2": "3.654.0",
     "@aws-sdk/client-ssm": "3.654.0",
-    "@aws-sdk/credential-provider-sso": "3.651.1",
+    "@aws-sdk/credential-provider-sso": "3.654.0",
     "@observablehq/framework": "^1.9.0",
     "d3-dsv": "^3.0.1",
     "d3-time-format": "^4.1.0",
