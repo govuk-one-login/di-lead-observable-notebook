@@ -10,7 +10,7 @@
     "build-github": "node src/components/github/repositories.js"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudwatch": "3.651.1",
+    "@aws-sdk/client-cloudwatch": "3.658.1",
     "@aws-sdk/client-codepipeline": "3.654.0",
     "@aws-sdk/client-ec2": "3.654.0",
     "@aws-sdk/client-ssm": "3.654.0",
