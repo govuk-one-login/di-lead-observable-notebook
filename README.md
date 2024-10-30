@@ -47,6 +47,14 @@ A typical Framework project looks like this:
 
 **`observablehq.config.js`** - This is the [project configuration](https://observablehq.com/framework/config) file, such as the pages and sections in the sidebar navigation, and the project’s title.
 
+## A note on usage
+
+NB this set of notebooks are currently intended to only be run locally.
+If that intention changes and there's a desire to place the outputs as a static site or dynamic site.
+A review will first need to be held of GHAS security concerns, present and past where dismissed.
+
+Until that time this repo is deemed only relevant as a locally run helper tool.
+
 ## Command reference
 
 | Command           | Description                                              |
