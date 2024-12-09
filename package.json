@@ -12,7 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "3.682.0",
     "@aws-sdk/client-codepipeline": "3.654.0",
-    "@aws-sdk/client-ec2": "3.679.0",
+    "@aws-sdk/client-ec2": "3.708.0",
     "@aws-sdk/client-ssm": "3.654.0",
     "@aws-sdk/credential-provider-sso": "3.682.0",
     "@observablehq/framework": "^1.12.0",
