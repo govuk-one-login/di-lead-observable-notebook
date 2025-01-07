@@ -6,6 +6,7 @@ export default {
   pages: [
     { name: "Repos", path: "/repos" },
     { name: "Home team PR review analysis", path: "/home-team-pr-reviews" },
+    { name: "Paired Changes", path: "/pairing"}
   ],
   
   // Content to add to the head of the page, e.g. for a favicon:
