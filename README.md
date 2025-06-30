@@ -12,6 +12,8 @@ then start observable with:
 npm run dev
 ```
 
+Minor README change so I can make a PR
+
 Then visit <http://localhost:3000> to preview your project.
 
 For more, see <https://observablehq.com/framework/getting-started>.
