@@ -19,7 +19,7 @@
     "d3-dsv": "^3.0.1",
     "d3-time-format": "^4.1.0",
     "dotenv": "16.4.5",
-    "octokit": "4.0.2",
+    "octokit": "5.0.3",
     "yaml": "2.6.0"
   },
   "devDependencies": {
