@@ -7,6 +7,7 @@ export default {
     { name: "Repos", path: "/repos" },
     { name: "Home team PR review analysis", path: "/home-team-pr-reviews" },
     { name: "Dependabot alerts", path: "/dependabot-alerts" },
+    { name: "Dependabot Alerts vs SLAs", path: "/dependabot-alerts-vs-sla" },
   ],
 
   // Content to add to the head of the page, e.g. for a favicon:
