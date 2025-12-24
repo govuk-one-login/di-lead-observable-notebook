@@ -6,8 +6,9 @@ export default {
   pages: [
     { name: "Repos", path: "/repos" },
     { name: "Home team PR review analysis", path: "/home-team-pr-reviews" },
+    { name: "Dependabot alerts", path: "/dependabot-alerts" },
   ],
-  
+
   // Content to add to the head of the page, e.g. for a favicon:
   head: '<link rel="icon" href="observable.png" type="image/png" sizes="32x32">',
 
