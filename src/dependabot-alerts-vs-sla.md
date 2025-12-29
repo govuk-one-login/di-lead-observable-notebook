@@ -8,6 +8,7 @@ TODO: Work out minimum permissions needed
 // Shared code
 const flattenSeverity = (severity) => `${severity.value}-${severity.label}`;
 const formatFlatSeverity = (severity) => severity.replace(/\d+\-/, "");
+const formatDays = (days) => `${days} Days`;
 ```
 
 Repositories:
@@ -40,10 +41,11 @@ const createLink = ([name, link]) => {
 
 let selectedRepos = view(Inputs.table(tableData, {
     sort: "name_link", // This shouldn't work
-    columns: ["name_link", "most_severe_alert_level"],
+    columns: ["name_link", "most_severe_alert_level", "is_in_sla"],
     header: {
         name_link: "Name",
-        most_severe_alert_level: "Most Severe Alert"
+        most_severe_alert_level: "Most Severe Alert",
+        is_in_sla: "Is in SLA",
     },
     format: {
         name_link: createLink,
@@ -77,13 +79,16 @@ const tableData = alerts
 
 display(Inputs.table(tableData, {
     sort: "severity", // This shouldn't work
-    columns: ["name_text", "severity"],
+    columns: ["name_text", "severity", "age_in_days", "is_in_sla"],
     header: {
         name_text: "Name",
-        severity: "Severity"
+        severity: "Severity",
+        age_in_days: "Age",
+        is_in_sla: "Is in SLA",
     },
     format: {
         severity: formatFlatSeverity,
+        age_in_days: formatDays,
     }
 }));
 ```

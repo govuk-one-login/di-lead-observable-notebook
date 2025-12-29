@@ -64,6 +64,7 @@ type Repository = {
     alerts: Alert[],
     archived: boolean,
     most_severe_alert_level?: Severity,
+    is_in_sla: boolean,
     // - what dependabot alerts are out of SLA
     // - what can't be safely patched
     // - what's primary and has a patch (so presumably we can update)
@@ -74,12 +75,34 @@ type Alert = {
     name_text: string;
     in_repositories: number[];
     severity: Severity;
+    created_at: Date;
+    age_in_days: number;
+    is_in_sla: boolean;
 }
 
 type FormattedDataForObservable = {
     repositories: Repository[],
     alerts: Alert[],
 }
+
+const SLA_DAYS = {
+    critical: 7,
+    high: 14,
+    medium: 30,
+    low: 60
+};
+const isInSla = (days: number, severity: Severity) => {
+    if (severity.label === "unknown") {
+        // Fail closed
+        return false;
+    }
+    return SLA_DAYS[severity.label] > days;
+}
+
+const dayInMillis = 1000 * 60 * 60 * 24;
+const ageInDays = (date: Date): number =>
+    Math.round((Date.now() - date.getTime()) / dayInMillis);
+
 
 const repositoryResponseToRepository = (response: RepositoryResponse): Repository => ({
     id: response.id,
@@ -91,6 +114,7 @@ const repositoryResponseToRepository = (response: RepositoryResponse): Repositor
     ],
     archived: response.archived ?? false,
     alerts: [],
+    is_in_sla: true,
 });
 
 const shouldShowRepository = (repository: Repository): boolean => (
@@ -99,21 +123,20 @@ const shouldShowRepository = (repository: Repository): boolean => (
     && !!repository.html_url
 );
 
-const daysOpen = (createdAt: string) => {
-    const now = new Date().getTime();
-    const created = new Date(createdAt).getTime();
-    // If createdAt is invalid, treat as unknown age
-    if (Number.isNaN(created)) return null;
-
-    const msPerDay = 24 * 60 * 60 * 1000;
-    return Math.floor((now - created) / msPerDay);
-};
-
-const alertResponseToDependabotAlert = (response: AlertResponse): Alert => ({
-    name_text: response.security_advisory.summary ?? '',
-    severity: labelToSeverity(response.security_advisory.severity ?? 'unknown'),
-    in_repositories: [],
-});
+const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
+    const severity = labelToSeverity(response.security_advisory.severity ?? 'unknown');
+    const created_at = new Date(response.created_at);
+    const age_in_days = ageInDays(created_at);
+    const is_in_sla = isInSla(age_in_days, severity);
+    return {
+        name_text: response.security_advisory.summary ?? '',
+        severity,
+        in_repositories: [],
+        created_at,
+        age_in_days,
+        is_in_sla,
+    }
+}
 
 // It would be nice to have a single list of permissions a token needs both to inform users how to create one _and_ to
 // test that a provided token has all permissions it needs. Unfortunately that's not currently possible with finr grain
@@ -168,6 +191,7 @@ const addAlertsToRepository = (repository: Repository, alerts: Alert[]): Alert[]
     repository.alerts = alerts;
 
     repository.most_severe_alert_level = alerts.map(alert => alert.severity).sort(compareSeverity)[0];
+    repository.is_in_sla = repository.is_in_sla && alerts.every((alert) => alert.is_in_sla);
 
     return repository.alerts;
 }
@@ -188,7 +212,10 @@ const outputObservableData = (data: FormattedDataForObservable) => (
 
     for (const repository of repositories) {
         const alertsForRepoRaw = await getDependabotAlerts(repository.name_text);
-        addAlertsToRepository(repository, alertsForRepoRaw.map(alertResponseToDependabotAlert));
+        addAlertsToRepository(repository, alertsForRepoRaw
+            .filter((alert) => alert.state === "open")
+            .map(alertResponseToDependabotAlert))
+        ;
 
         for (const alert of repository.alerts) {
             const existingAlert = alerts.find(({name_text}) => name_text === alert.name_text);
