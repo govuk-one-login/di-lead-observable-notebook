@@ -21,6 +21,41 @@ type RepositoryResponse = Unpacked<RepositoriesResponse>;
 const RestOctokit = Octokit.plugin(restEndpointMethods, paginateRest);
 const octokit = new RestOctokit({auth: process.env.GITHUB_TOKEN});
 
+type SeverityLabel =
+    | "critical"
+    | "high"
+    | "medium"
+    | "low"
+    | "unknown"
+
+type Severity = {
+    label: SeverityLabel,
+    value: number,
+}
+
+const compareSeverity = (a: Severity, b: Severity) =>
+    a.value - b.value;
+
+const severityLabelToValue = (label: SeverityLabel): number => {
+    switch (label) {
+        case "critical":
+            return 0;
+        case "high":
+            return 1;
+        case "medium":
+            return 2;
+        case "low":
+            return 3;
+        case "unknown":
+            return 4;
+    }
+}
+
+const labelToSeverity = (label: SeverityLabel): Severity => ({
+    label,
+    value: severityLabelToValue(label),
+});
+
 type Repository = {
     id: number;
     name_text: string;
@@ -28,6 +63,7 @@ type Repository = {
     name_link: [string, string];
     alerts: Alert[],
     archived: boolean,
+    most_severe_alert_level?: Severity,
     // - what dependabot alerts are out of SLA
     // - what can't be safely patched
     // - what's primary and has a patch (so presumably we can update)
@@ -37,6 +73,7 @@ type Repository = {
 type Alert = {
     name_text: string;
     in_repositories: number[];
+    severity: Severity;
 }
 
 type FormattedDataForObservable = {
@@ -50,7 +87,7 @@ const repositoryResponseToRepository = (response: RepositoryResponse): Repositor
     html_url: response.html_url ?? '',
     name_link: [
         response.name ?? '',
-        response.html_url ??'',
+        response.html_url ?? '',
     ],
     archived: response.archived ?? false,
     alerts: [],
@@ -74,6 +111,7 @@ const daysOpen = (createdAt: string) => {
 
 const alertResponseToDependabotAlert = (response: AlertResponse): Alert => ({
     name_text: response.security_advisory.summary ?? '',
+    severity: labelToSeverity(response.security_advisory.severity ?? 'unknown'),
     in_repositories: [],
 });
 
@@ -95,6 +133,18 @@ const getAllRepositories = (): Promise<RepositoriesResponse> => (
     )
 );
 
+
+// For testing
+const getSomeRepositories = async (): Promise<RepositoriesResponse> => {
+    const rawResponse = await octokit.rest.repos.listForOrg({
+        org: GITHUB_ORG,
+        type: "all",
+        per_page: 20,
+        page: 4,
+    });
+    return rawResponse.data;
+}
+
 // Get dependencies for a specific repository
 const getDependabotAlerts = async (repo: string): Promise<AlertsResponse> => {
     try {
@@ -108,10 +158,19 @@ const getDependabotAlerts = async (repo: string): Promise<AlertsResponse> => {
             }
         );
     } catch (error) {
-        // console.warn(`Failed to fetch alerts for ${repo}:`, error);
+        console.warn(`Failed to fetch alerts for ${repo}:`, error);
         return [];
     }
 };
+
+
+const addAlertsToRepository = (repository: Repository, alerts: Alert[]): Alert[] => {
+    repository.alerts = alerts;
+
+    repository.most_severe_alert_level = alerts.map(alert => alert.severity).sort(compareSeverity)[0];
+
+    return repository.alerts;
+}
 
 // This function just to check the type of data written to Observable is correct
 const outputObservableData = (data: FormattedDataForObservable) => (
@@ -119,7 +178,8 @@ const outputObservableData = (data: FormattedDataForObservable) => (
 );
 
 (async () => {
-    const rawRepoData = await getAllRepositories();
+    // const rawRepoData = await getAllRepositories();
+    const rawRepoData = await getSomeRepositories();
     const repositories = rawRepoData
         .map(repositoryResponseToRepository)
         .filter(shouldShowRepository);
@@ -128,7 +188,8 @@ const outputObservableData = (data: FormattedDataForObservable) => (
 
     for (const repository of repositories) {
         const alertsForRepoRaw = await getDependabotAlerts(repository.name_text);
-        repository.alerts = alertsForRepoRaw.map(alertResponseToDependabotAlert);
+        addAlertsToRepository(repository, alertsForRepoRaw.map(alertResponseToDependabotAlert));
+
         for (const alert of repository.alerts) {
             const existingAlert = alerts.find(({name_text}) => name_text === alert.name_text);
             if (!existingAlert) {
