@@ -26,7 +26,7 @@ type SeverityLabel =
     | "high"
     | "medium"
     | "low"
-    | "unknown"
+    ;
 
 type Severity = {
     label: SeverityLabel,
@@ -35,6 +35,10 @@ type Severity = {
 
 const compareSeverity = (a: Severity, b: Severity) =>
     a.value - b.value;
+
+const mostSevere = (a: Severity, b: Severity) => (
+    a.value > b.value ? a : b
+);
 
 const severityLabelToValue = (label: SeverityLabel): number => {
     switch (label) {
@@ -46,8 +50,6 @@ const severityLabelToValue = (label: SeverityLabel): number => {
             return 2;
         case "low":
             return 3;
-        case "unknown":
-            return 4;
     }
 }
 
@@ -58,31 +60,44 @@ const labelToSeverity = (label: SeverityLabel): Severity => ({
 
 type Repository = {
     id: number;
-    name_text: string;
-    html_url: string;
-    name_link: [string, string];
+    name: string;
+    url: string;
     alerts: Alert[],
     archived: boolean,
-    most_severe_alert_level?: Severity,
-    is_in_sla: boolean,
-    // - what dependabot alerts are out of SLA
-    // - what can't be safely patched
-    // - what's primary and has a patch (so presumably we can update)
-    // - what's transitory and has a patch (so presumably trickier or more checks?)
+    maxSeverity?: Severity,
+    inSla: boolean,
 }
 
+type Relationship =
+    | "unknown"
+    | "direct"
+    | "transitive"
+    ;
+
 type Alert = {
-    name_text: string;
-    in_repositories: number[];
+    id: number;
+    repositoryId: number;
+    name: string;
     severity: Severity;
-    created_at: Date;
-    age_in_days: number;
-    is_in_sla: boolean;
+    createdAt: Date;
+    ageInDays: number;
+    inSla: boolean;
+    relationship: Relationship;
+    hasPatch: boolean;
+}
+
+type AlertSummery = {
+    name: string,
+    inRepositories: number[],
+    severity: Severity,
+    ageInDays: number,
+    inSla: boolean,
+    count: number,
 }
 
 type FormattedDataForObservable = {
     repositories: Repository[],
-    alerts: Alert[],
+    alertSummaries: AlertSummery[],
 }
 
 const SLA_DAYS = {
@@ -91,55 +106,58 @@ const SLA_DAYS = {
     medium: 30,
     low: 60
 };
-const isInSla = (days: number, severity: Severity) => {
-    if (severity.label === "unknown") {
-        // Fail closed
-        return false;
-    }
-    return SLA_DAYS[severity.label] > days;
-}
+const isInSla = (days: number, severity: Severity) => (
+    SLA_DAYS[severity.label] > days
+)
 
 const dayInMillis = 1000 * 60 * 60 * 24;
-const ageInDays = (date: Date): number =>
+const calculateAgeInDays = (date: Date): number =>
     Math.round((Date.now() - date.getTime()) / dayInMillis);
-
 
 const repositoryResponseToRepository = (response: RepositoryResponse): Repository => ({
     id: response.id,
-    name_text: response.name ?? '',
-    html_url: response.html_url ?? '',
-    name_link: [
-        response.name ?? '',
-        response.html_url ?? '',
-    ],
+    name: response.name,
+    url: response.html_url,
     archived: response.archived ?? false,
     alerts: [],
-    is_in_sla: true,
+    inSla: true,
 });
 
 const shouldShowRepository = (repository: Repository): boolean => (
     !repository.archived
-    && !!repository.name_text
-    && !!repository.html_url
+    // && !!repository.name
+    // && !!repository.url
 );
 
+const alertToNewSummary = (alert: Alert): AlertSummery => ({
+    name: alert.name,
+    inRepositories: [alert.repositoryId],
+    severity: alert.severity,
+    ageInDays: alert.ageInDays,
+    inSla: alert.inSla,
+    count: 1,
+});
+
 const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
-    const severity = labelToSeverity(response.security_advisory.severity ?? 'unknown');
-    const created_at = new Date(response.created_at);
-    const age_in_days = ageInDays(created_at);
-    const is_in_sla = isInSla(age_in_days, severity);
+    const severity = labelToSeverity(response.security_advisory.severity);
+    const createdAt = new Date(response.created_at);
+    const ageInDays = calculateAgeInDays(createdAt);
+    const inSla = isInSla(ageInDays, severity);
     return {
-        name_text: response.security_advisory.summary ?? '',
+        id: response.number,
+        repositoryId: 0,
+        name: response.security_advisory.summary ?? '',
         severity,
-        in_repositories: [],
-        created_at,
-        age_in_days,
-        is_in_sla,
+        createdAt,
+        ageInDays,
+        inSla,
+        relationship: response.dependency.relationship,
+        hasPatch: !!response.fixed_at,
     }
 }
 
 // It would be nice to have a single list of permissions a token needs both to inform users how to create one _and_ to
-// test that a provided token has all permissions it needs. Unfortunately that's not currently possible with finr grain
+// test that a provided token has all permissions it needs. Unfortunately that's not currently possible with fine grain
 // tokens.
 // const checkPermissions = async () => {
 //     console.info("Check permissions");
@@ -188,48 +206,61 @@ const getDependabotAlerts = async (repo: string): Promise<AlertsResponse> => {
 
 
 const addAlertsToRepository = (repository: Repository, alerts: Alert[]): Alert[] => {
-    repository.alerts = alerts;
-
-    repository.most_severe_alert_level = alerts.map(alert => alert.severity).sort(compareSeverity)[0];
-    repository.is_in_sla = repository.is_in_sla && alerts.every((alert) => alert.is_in_sla);
-
+    repository.alerts = alerts.map(alert => ({...alert, repositoryId: repository.id}));
+    repository.maxSeverity = alerts.map(alert => alert.severity).sort(compareSeverity)[0];
+    repository.inSla = repository.inSla && alerts.every((alert) => alert.inSla);
     return repository.alerts;
 }
 
+const createAlertSummariser = (alertSummaries: AlertSummery[]) => (alert: Alert) => {
+    const existingAlert = alertSummaries.find(({name}) => name === alert.name);
+    if (!existingAlert) {
+        alertSummaries.push(alertToNewSummary(alert));
+    } else {
+        existingAlert.inRepositories.push(alert.repositoryId);
+        existingAlert.severity = mostSevere(existingAlert.severity, alert.severity);
+        existingAlert.ageInDays = Math.max(existingAlert.ageInDays, alert.ageInDays);
+        existingAlert.inSla = existingAlert.inSla && alert.inSla;
+        existingAlert.count++;
+    }
+}
+
 // This function just to check the type of data written to Observable is correct
-const outputObservableData = (data: FormattedDataForObservable) => (
-    console.log(JSON.stringify(data))
-);
+const outputObservableData = (data: FormattedDataForObservable) => {
+    const dataAsString = JSON.stringify(data, null, 2)
+    console.log(dataAsString);
+    console.warn(dataAsString);
+};
 
 (async () => {
-    // const rawRepoData = await getAllRepositories();
     const rawRepoData = await getSomeRepositories();
+    // const rawRepoData = await getAllRepositories();
     const repositories = rawRepoData
         .map(repositoryResponseToRepository)
         .filter(shouldShowRepository);
 
-    const alerts: Alert[] = [];
+    const alertSummaries: AlertSummery[] = [];
+    const alertSummariser = createAlertSummariser(alertSummaries);
 
     for (const repository of repositories) {
-        const alertsForRepoRaw = await getDependabotAlerts(repository.name_text);
-        addAlertsToRepository(repository, alertsForRepoRaw
-            .filter((alert) => alert.state === "open")
-            .map(alertResponseToDependabotAlert))
-        ;
+        const alertsForRepoRaw = await getDependabotAlerts(repository.name);
 
-        for (const alert of repository.alerts) {
-            const existingAlert = alerts.find(({name_text}) => name_text === alert.name_text);
-            if (!existingAlert) {
-                alerts.push(alert);
-            } else {
-                existingAlert.in_repositories.push(repository.id);
-            }
-        }
+        // Add alerts to repo
+        addAlertsToRepository(
+            repository,
+            alertsForRepoRaw
+                .filter((alert) => alert.state === "open")
+                .map(alertResponseToDependabotAlert)
+        );
+
+        // Add alerts to summary
+        repository.alerts.forEach(alertSummariser);
     }
 
-    const formattedData = {
+    console.warn("this doesn't work does it");
+
+    outputObservableData({
         repositories,
-        alerts,
-    };
-    outputObservableData(formattedData);
+        alertSummaries,
+    });
 })();
