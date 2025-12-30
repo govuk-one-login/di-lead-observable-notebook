@@ -2,50 +2,13 @@
 
 Create your key here: https://github.com/settings/personal-access-tokens
 
-TODO: Work out minimum permissions needed
-
-```mermaid
-erDiagram
-    direction LR
-    
-    Repository ||--|{ Alert : has
-    Alert }|--|{ AlertSummary : summarises
-
-    Repository {
-        id number
-        name string
-        url string
-        alerts Alert[]
-        archived boolean
-        maxSeverity Severity
-        inSla boolean
-    }
-    Alert {
-        id number
-        repositoryId number
-        name string
-        severity Severity
-        createdAt Date
-        ageInDays number
-        inSla boolean
-        isPrimary boolean
-        isSecondary boolean
-        hasPatch boolean
-    }
-    AlertSummary {
-        name string
-        inRepositories number
-        severity Severity
-        ageInDays number
-        inSla boolean
-        count number
-    }
-```
+You will need to set the keys owner to the `govuk-one-login` organisation with the following permissions:
+- TODO: Work out minimum permissions needed
 
 ```js
 // Initial Data
 const dependabotAlertsVsSla = await FileAttachment(
-  "./data/github/dependabot-alerts-vs-sla.json"
+  './data/github/dependabot-alerts-vs-sla.json'
 ).json();
 const { repositories, alertSummaries } = dependabotAlertsVsSla;
 ```
@@ -57,13 +20,28 @@ const flattenAlertSeverity = (alert) => ({
     ...alert,
     severity: alert.severity && flattenSeverity(alert.severity)
 });
-const formatFlatSeverity = (severity) => severity.replace(/\d+\-/, "");
+const formatSeverityLabel = (severity) => {
+    switch (severity) {
+        case 'critical':
+            return '‼️';
+        case 'high':
+            return '🔴';
+        case 'medium':
+            return '🟠';
+        case 'low':
+            return '🟢';
+    }
+}
+const formatFlatSeverity = (severity) => {
+    const label = severity.replace(/\d+\-/, '');
+    return `${formatSeverityLabel(label)} ${label}`;
+}
 const formatDays = (days) => `${days} Days`;
-const formatBoolean = (bool) => bool ? '\u2714' : '\u26A0';
-const formatLink = ([name, link]) => {
+const formatBoolean = (bool) => bool ? '✅' : '❌';
+const formatLink = (link) => {
     const element = document.createElement('a');
     element.href = link;
-    element.text = name;
+    element.text = 'Link';
     return element;
 }
 ```
@@ -71,38 +49,34 @@ const formatLink = ([name, link]) => {
 ## Alert Summaries:
 
 ```js
-const alertName = view(Inputs.text({label: "Alert Name", placeholder: "Filter by name"}));
+const alertName = view(Inputs.text({label: 'Alert Name', placeholder: 'Filter by name'}));
 ```
-
 ```js
 const alertSummariesTableData = alertSummaries
-    .filter(alert => (
-        alert.name.toLocaleLowerCase().includes(alertName.toString().toLocaleLowerCase())
-    ))
+    .filter((alert) => alert.name.toLocaleLowerCase().includes(alertName.toString().toLocaleLowerCase()))
     .map(flattenAlertSeverity);
 
 const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
-    sort: "severity",
-    columns: ["name", "severity", "ageInDays", "inSla"],
-    header: {
-        name: "Name",
-        severity: "Severity",
-        ageInDays: "Age",
-        inSla: "Is in SLA",
-    },
-    format: {
-        severity: formatFlatSeverity,
-        ageInDays: formatDays,
-        inSla: formatBoolean,
-    }
-}));
+        sort: 'severity',
+        columns: ['name', 'severity', 'ageInDays', 'inSla'],
+        header: {
+            name: 'Name',
+            severity: 'Severity',
+            ageInDays: 'Age',
+            inSla: 'Is in SLA',
+        },
+        format: {
+            severity: formatFlatSeverity,
+            ageInDays: formatDays,
+            inSla: formatBoolean,
+        }
+    }));
 ```
 
 ## Repositories:
 
 ```js
-const repoName = view(Inputs.text({label: "Repository Name", placeholder: "Filter by name"}));
-// TODO: Add ignore summaries toggle
+const repoName = view(Inputs.text({label: 'Repository Name', placeholder: 'Filter by name'}));
 ```
 
 ```js
@@ -117,14 +91,16 @@ const repoTableData = repositories
     }));
 
 let selectedRepos = view(Inputs.table(repoTableData, {
-    sort: "name",
-    columns: ["name", "maxSeverity", "inSla"],
+    sort: 'name',
+    columns: ['name', 'url', 'maxSeverity', 'inSla'],
     header: {
-        name: "Name",
-        maxSeverity: "Most Severe Alert",
-        inSla: "Is in SLA",
+        name: 'Name',
+        url: '',
+        maxSeverity: 'Most Severe Alert',
+        inSla: 'Is in SLA',
     },
     format: {
+        url: formatLink,
         maxSeverity: formatFlatSeverity,
         inSla: formatBoolean,
     }
@@ -143,6 +119,7 @@ const flattenedAlerts = selectedRepos
         repo.alerts.map((alert) => ({
             repoName: repo.name,
             alertName: alert.name,
+            url: alert.url,
             severity: flattenSeverity(alert.severity),
             ageInDays: alert.ageInDays,
             inSla: alert.inSla,
@@ -152,18 +129,21 @@ const flattenedAlerts = selectedRepos
     );
 
 view(Inputs.table(flattenedAlerts, {
-    sort: "severity",
+    sort: 'severity',
     header: {
-        repoName: "Repository",
-        alertName: "Alert",
-        severity: "Severity",
-        ageInDays: "Age",
-        inSla: "Is in SLA",
-        relationship: "Relationship",
-        hasPatch: "hasPatch",
+        repoName: 'Repository',
+        alertName: 'Alert',
+        url: '',
+        severity: 'Severity',
+        ageInDays: 'Age',
+        inSla: 'Is in SLA',
+        relationship: 'Relationship',
+        hasPatch: 'hasPatch',
     },
     format: {
+        url: formatLink,
         severity: formatFlatSeverity,
+        ageInDays: formatDays,
         inSla: formatBoolean,
         hasPatch: formatBoolean,
     }

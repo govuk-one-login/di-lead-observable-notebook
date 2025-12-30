@@ -1,31 +1,31 @@
-import "dotenv/config";
-import {Octokit} from "@octokit/core";
-import {restEndpointMethods} from "@octokit/plugin-rest-endpoint-methods";
-import {paginateRest} from "@octokit/plugin-paginate-rest";
-import {Endpoints} from "@octokit/types";
+import 'dotenv/config';
+import {Octokit} from '@octokit/core';
+import {restEndpointMethods} from '@octokit/plugin-rest-endpoint-methods';
+import {paginateRest} from '@octokit/plugin-paginate-rest';
+import {Endpoints} from '@octokit/types';
 
-const GITHUB_ORG = "govuk-one-login";
+const GITHUB_ORG = 'govuk-one-login';
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const TEST_MODE = process.env.TEST_MODE;
 
-type AlertsResponse =
-    Endpoints["GET /repos/{owner}/{repo}/dependabot/alerts"]["response"]["data"];
-type RepositoriesResponse =
-    Endpoints["GET /orgs/{org}/repos"]["response"]["data"];
+type AlertsResponse = Endpoints['GET /repos/{owner}/{repo}/dependabot/alerts']['response']['data'];
+type RepositoriesResponse = Endpoints['GET /orgs/{org}/repos']['response']['data'];
 
 // Responses are arrays that are themselves not typed, so we can infer the type the array is of with this magic
 type Unpacked<T> = T extends (infer U)[] ? U : T;
 
-// These represent the individual items returned by
+// These represent the individual items in the arrays returned by the endpoints
 type AlertResponse = Unpacked<AlertsResponse>;
 type RepositoryResponse = Unpacked<RepositoriesResponse>;
 
 const RestOctokit = Octokit.plugin(restEndpointMethods, paginateRest);
-const octokit = new RestOctokit({auth: process.env.GITHUB_TOKEN});
+const octokit = new RestOctokit({auth: GITHUB_TOKEN});
 
 type SeverityLabel =
-    | "critical"
-    | "high"
-    | "medium"
-    | "low"
+    | 'critical'
+    | 'high'
+    | 'medium'
+    | 'low'
     ;
 
 type Severity = {
@@ -40,18 +40,14 @@ const mostSevere = (a: Severity, b: Severity) => (
     a.value > b.value ? a : b
 );
 
-const severityLabelToValue = (label: SeverityLabel): number => {
-    switch (label) {
-        case "critical":
-            return 0;
-        case "high":
-            return 1;
-        case "medium":
-            return 2;
-        case "low":
-            return 3;
-    }
+const labelToValue: Record<SeverityLabel, number> = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 4,
 }
+const severityLabelToValue = (label: SeverityLabel): number =>
+    labelToValue[label]
 
 const labelToSeverity = (label: SeverityLabel): Severity => ({
     label,
@@ -69,15 +65,16 @@ type Repository = {
 }
 
 type Relationship =
-    | "unknown"
-    | "direct"
-    | "transitive"
+    | 'unknown'
+    | 'direct'
+    | 'transitive'
     ;
 
 type Alert = {
     id: number;
     repositoryId: number;
     name: string;
+    url: string;
     severity: Severity;
     createdAt: Date;
     ageInDays: number;
@@ -147,6 +144,7 @@ const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
         id: response.number,
         repositoryId: 0,
         name: response.security_advisory.summary ?? '',
+        url: response.html_url,
         severity,
         createdAt,
         ageInDays,
@@ -156,54 +154,46 @@ const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
     }
 }
 
-// It would be nice to have a single list of permissions a token needs both to inform users how to create one _and_ to
-// test that a provided token has all permissions it needs. Unfortunately that's not currently possible with fine grain
-// tokens.
-// const checkPermissions = async () => {
-//     console.info("Check permissions");
-//     console.info(" - GitHub does not allow you to see Fine Grain token permissions 🤦🏻‍♂️");
-// }
-
+// Gets all repositories
 const getAllRepositories = (): Promise<RepositoriesResponse> => (
     octokit.paginate(
         octokit.rest.repos.listForOrg, {
             org: GITHUB_ORG,
-            type: "all",
+            type: 'all',
             per_page: 100,
         }
     )
 );
 
-
-// For testing
+// Gets a little slice of repos for testing / developing
 const getSomeRepositories = async (): Promise<RepositoriesResponse> => {
     const rawResponse = await octokit.rest.repos.listForOrg({
         org: GITHUB_ORG,
-        type: "all",
+        type: 'all',
         per_page: 20,
         page: 4,
     });
     return rawResponse.data;
 }
 
+const getRepositories = (): Promise<RepositoriesResponse> =>
+    TEST_MODE
+        ? getSomeRepositories()
+        : getAllRepositories();
+
 // Get dependencies for a specific repository
-const getDependabotAlerts = async (repo: string): Promise<AlertsResponse> => {
-    try {
-        // Returning awaits is weird, but we need it for the try/catch
-        return await octokit.paginate(
-            octokit.rest.dependabot.listAlertsForRepo,
-            {
-                owner: GITHUB_ORG,
-                repo: repo,
-                per_page: 100,
-            }
-        );
-    } catch (error) {
+const getDependabotAlerts = async (repo: string): Promise<AlertsResponse> =>
+    octokit.paginate(
+        octokit.rest.dependabot.listAlertsForRepo,
+        {
+            owner: GITHUB_ORG,
+            repo: repo,
+            per_page: 100,
+        }
+    ).catch((error) => {
         console.warn(`Failed to fetch alerts for ${repo}:`, error);
         return [];
-    }
-};
-
+    });
 
 const addAlertsToRepository = (repository: Repository, alerts: Alert[]): Alert[] => {
     repository.alerts = alerts.map(alert => ({...alert, repositoryId: repository.id}));
@@ -214,27 +204,27 @@ const addAlertsToRepository = (repository: Repository, alerts: Alert[]): Alert[]
 
 const createAlertSummariser = (alertSummaries: AlertSummery[]) => (alert: Alert) => {
     const existingAlert = alertSummaries.find(({name}) => name === alert.name);
+
     if (!existingAlert) {
         alertSummaries.push(alertToNewSummary(alert));
-    } else {
-        existingAlert.inRepositories.push(alert.repositoryId);
-        existingAlert.severity = mostSevere(existingAlert.severity, alert.severity);
-        existingAlert.ageInDays = Math.max(existingAlert.ageInDays, alert.ageInDays);
-        existingAlert.inSla = existingAlert.inSla && alert.inSla;
-        existingAlert.count++;
+        return;
     }
+
+    existingAlert.inRepositories.push(alert.repositoryId);
+    existingAlert.severity = mostSevere(existingAlert.severity, alert.severity);
+    existingAlert.ageInDays = Math.max(existingAlert.ageInDays, alert.ageInDays);
+    existingAlert.inSla = existingAlert.inSla && alert.inSla;
+    existingAlert.count++;
 }
 
 // This function just to check the type of data written to Observable is correct
 const outputObservableData = (data: FormattedDataForObservable) => {
-    const dataAsString = JSON.stringify(data, null, 2)
-    console.log(dataAsString);
-    console.warn(dataAsString);
+    console.log(JSON.stringify(data));
+    // console.warn(JSON.stringify(data, null, 2)); // Uncomment to print JSON to terminal
 };
 
 (async () => {
-    const rawRepoData = await getSomeRepositories();
-    // const rawRepoData = await getAllRepositories();
+    const rawRepoData = await getRepositories();
     const repositories = rawRepoData
         .map(repositoryResponseToRepository)
         .filter(shouldShowRepository);
@@ -249,15 +239,13 @@ const outputObservableData = (data: FormattedDataForObservable) => {
         addAlertsToRepository(
             repository,
             alertsForRepoRaw
-                .filter((alert) => alert.state === "open")
+                .filter((alert) => alert.state === 'open')
                 .map(alertResponseToDependabotAlert)
         );
 
         // Add alerts to summary
         repository.alerts.forEach(alertSummariser);
     }
-
-    console.warn("this doesn't work does it");
 
     outputObservableData({
         repositories,
