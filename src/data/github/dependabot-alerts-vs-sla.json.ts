@@ -36,9 +36,8 @@ type Severity = {
 const compareSeverity = (a: Severity, b: Severity) =>
     a.value - b.value;
 
-const mostSevere = (a: Severity, b: Severity) => (
-    a.value > b.value ? a : b
-);
+const mostSevere = (a: Severity, b: Severity) =>
+    a.value > b.value ? a : b;
 
 const labelToValue: Record<SeverityLabel, number> = {
     critical: 0,
@@ -150,7 +149,7 @@ const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
         ageInDays,
         inSla,
         relationship: response.dependency.relationship,
-        hasPatch: !!response.fixed_at,
+        hasPatch: !!response.security_vulnerability.first_patched_version,
     }
 }
 
