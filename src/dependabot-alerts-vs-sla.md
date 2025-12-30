@@ -140,7 +140,8 @@ const flattenedAlerts = selectedRepos
             relationship: alert.relationship,
             hasPatch: alert.hasPatch
         }))
-    );
+    )
+    .filter((alert) => selectedAlertNames.includes(alert.alertName));
 
 view(Inputs.table(flattenedAlerts, {
     sort: 'severity',
