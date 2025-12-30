@@ -57,20 +57,28 @@ const alertSummariesTableData = alertSummaries
     .map(flattenAlertSeverity);
 
 const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
-        sort: 'severity',
-        columns: ['name', 'severity', 'ageInDays', 'inSla'],
-        header: {
-            name: 'Name',
-            severity: 'Severity',
-            ageInDays: 'Age',
-            inSla: 'Is in SLA',
-        },
-        format: {
-            severity: formatFlatSeverity,
-            ageInDays: formatDays,
-            inSla: formatBoolean,
-        }
-    }));
+    sort: 'severity',
+    columns: ['name', 'severity', 'ageInDays', 'inSla'],
+    header: {
+        name: 'Name',
+        severity: 'Severity',
+        ageInDays: 'Age',
+        inSla: 'In SLA',
+    },
+    format: {
+        severity: formatFlatSeverity,
+        ageInDays: formatDays,
+        inSla: formatBoolean,
+    },
+    // layout: 'auto',
+    maxWidth: '100%',
+    width: {
+        name: 'auto',
+        severity: '8%',
+        ageInDays: '7%',
+        inSla: '5%',
+    }
+}));
 ```
 
 ## Repositories:
@@ -96,14 +104,20 @@ let selectedRepos = view(Inputs.table(repoTableData, {
     header: {
         name: 'Name',
         url: '',
-        maxSeverity: 'Most Severe Alert',
-        inSla: 'Is in SLA',
+        maxSeverity: 'Most Severe',
+        inSla: 'In SLA',
     },
     format: {
         url: formatLink,
         maxSeverity: formatFlatSeverity,
         inSla: formatBoolean,
-    }
+    },
+    width: {
+        name: 'auto',
+        url: '4%',
+        maxSeverity: '11%',
+        inSla: '10%',
+    },
 }));
 ```
 
@@ -136,9 +150,9 @@ view(Inputs.table(flattenedAlerts, {
         url: '',
         severity: 'Severity',
         ageInDays: 'Age',
-        inSla: 'Is in SLA',
+        inSla: 'SLA',
         relationship: 'Relationship',
-        hasPatch: 'hasPatch',
+        hasPatch: 'Patch',
     },
     format: {
         url: formatLink,
@@ -146,6 +160,18 @@ view(Inputs.table(flattenedAlerts, {
         ageInDays: formatDays,
         inSla: formatBoolean,
         hasPatch: formatBoolean,
-    }
+    },
+    tableLayout: 'auto',
+    maxWidth: '100%',
+    width: {
+        repoName: '15%',
+        alertName: 'auto',
+        url: '4%',
+        severity: '6%',
+        ageInDays: '7%',
+        inSla: '3%',
+        relationship: '10%',
+        hasPatch: '5%',
+    },
 }));
 ```
