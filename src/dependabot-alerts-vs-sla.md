@@ -2,8 +2,14 @@
 
 Create your key here: https://github.com/settings/personal-access-tokens
 
-You will need to set the keys owner to the `govuk-one-login` organisation with the following permissions:
-- TODO: Work out minimum permissions needed
+You will need a fine grain access token. Set the tokens owner to the `govuk-one-login` organisation and give it the
+`Dependabot Alerts (read)` permission. This will automatically add the `Metadata (read)` permission which is the only
+other permission you need.
+
+The GitHub token must be provided in the a `GITHUB_TOKEN` environment variable. Getting the data currently takes over
+two minutes and that will likely only increase, so be patient. If you just need to see if the code is workin, set an
+environment variable `TEST_MODE=true` to only download 20 repositories and their associated alerts.
+
 
 ```js
 // Initial Data
@@ -20,23 +26,23 @@ const flattenAlertSeverity = (alert) => ({
     ...alert,
     severity: alert.severity && flattenSeverity(alert.severity)
 });
+const severityLabel = {
+    critical: '‼️',
+    high: '🔴', 
+    medium: '🟠', 
+    low: '🟢',
+}
 const formatSeverityLabel = (severity) => {
-    switch (severity) {
-        case 'critical':
-            return '‼️';
-        case 'high':
-            return '🔴';
-        case 'medium':
-            return '🟠';
-        case 'low':
-            return '🟢';
-    }
+    const element = document.createElement('span');
+    element.title = severity;
+    element.textContent = severityLabel[severity];
+    return element;
 }
 const formatFlatSeverity = (severity) => {
     const label = severity.replace(/\d+\-/, '');
-    return `${formatSeverityLabel(label)} ${label}`;
+    return formatSeverityLabel(label);
 }
-const formatDays = (days) => `${days} Days`;
+const formatDays = (days) => `${days} days`;
 const formatBoolean = (bool) => bool ? '✅' : '❌';
 const formatLink = (link) => {
     const element = document.createElement('a');
@@ -44,9 +50,19 @@ const formatLink = (link) => {
     element.text = 'Link';
     return element;
 }
+const formatTextWithTitle = (text) => {
+    const element = document.createElement('span');
+    element.title = text;
+    element.textContent = text;
+    return element;
+}
 ```
 
 ## Alert Summaries:
+
+This shows all alerts (collated by name) across the organisation and initially sorted by severity. You can filter alerts
+by name, or select individual alerts and the Repositories table below will be filtered to only repositories impacted by
+those alerts.
 
 ```js
 const alertName = view(Inputs.text({label: 'Alert Name', placeholder: 'Filter by name'}));
@@ -66,6 +82,7 @@ const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
         inSla: 'In SLA',
     },
     format: {
+        name: formatTextWithTitle,
         severity: formatFlatSeverity,
         ageInDays: formatDays,
         inSla: formatBoolean,
@@ -83,6 +100,9 @@ const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
 
 ## Repositories:
 
+Lists all repositories that are impacted by at least one of the above alerts, initially sorted by severity. Shows
+whether the repository is in SLA or not, and provides a link to the repository.
+
 ```js
 const repoName = view(Inputs.text({label: 'Repository Name', placeholder: 'Filter by name'}));
 ```
@@ -99,7 +119,7 @@ const repoTableData = repositories
     }));
 
 let selectedRepos = view(Inputs.table(repoTableData, {
-    sort: 'name',
+    sort: 'maxSeverity',
     columns: ['name', 'url', 'maxSeverity', 'inSla'],
     header: {
         name: 'Name',
@@ -108,6 +128,7 @@ let selectedRepos = view(Inputs.table(repoTableData, {
         inSla: 'In SLA',
     },
     format: {
+        name: formatTextWithTitle,
         url: formatLink,
         maxSeverity: formatFlatSeverity,
         inSla: formatBoolean,
@@ -122,6 +143,12 @@ let selectedRepos = view(Inputs.table(repoTableData, {
 ```
 
 ## Alerts for Selected Repos:
+
+Selecting or filtering repositories in the above table causes this one to show only alerts for that specific repository.
+Note: this shows all alerts for that repository, not just ones matching the first table. From here you can see if the 
+alert is within SLA, whether the alert is on a direct dependency or transitive dependency (a dependency of a dependency)
+and whether there is a patch for the alert. There is also a link to take you straight to the Dependabot alert page for
+the alert on that specific repo.
 
 ```js
 const selectedRepoNames = selectedRepos.map((repo) => repo.name);
@@ -156,23 +183,26 @@ view(Inputs.table(flattenedAlerts, {
         hasPatch: 'Patch',
     },
     format: {
+        repoName: formatTextWithTitle,
+        alertName: formatTextWithTitle,
         url: formatLink,
         severity: formatFlatSeverity,
         ageInDays: formatDays,
         inSla: formatBoolean,
+        relationship: formatTextWithTitle,
         hasPatch: formatBoolean,
     },
     tableLayout: 'auto',
     maxWidth: '100%',
     width: {
         repoName: '15%',
-        alertName: 'auto',
+        alertName: '45%',
         url: '4%',
         severity: '6%',
-        ageInDays: '7%',
-        inSla: '3%',
-        relationship: '10%',
-        hasPatch: '5%',
+        ageInDays: '8%',
+        inSla: '4%',
+        relationship: '12%',
+        hasPatch: '6%',
     },
 }));
 ```
