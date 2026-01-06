@@ -1,18 +1,34 @@
 # DI Lead Dev Observable Notebook
 
 This is an [Observable Framework](https://observablehq.com/framework) project to help Lead Developers in the DI program better survey their estate.
-To get started, populate some basic data with:
 
-```
-npm run build-github
+To get started generate a fine-grained Github access token with the following permissions:
+
+- Organisation
+  - Read custom properties
+- Repository
+  - Read Dependabot alerts
+  - Read code custom properties
+  - Read metadata
+  - Read pull requests
+  - Read secret scanning alerts
+  - Read security events
+
+Then copy the token into `.env`.
+
+```sh
+cp .env.example .env
 ```
 
-then start observable with:
-```
-npm run dev
+Install and start Observable with:
+
+```sh
+npm ci && npm run dev
 ```
 
-Then visit <http://localhost:3000> to preview your project.
+Visit <http://localhost:3000> to preview your project.
+
+Observable will fetch data from the APIs when you navigate to a report page.
 
 For more, see <https://observablehq.com/framework/getting-started>.
 
@@ -57,11 +73,11 @@ Until that time this repo is deemed only relevant as a locally run helper tool.
 
 ## Command reference
 
-| Command           | Description                                              |
-| ----------------- | -------------------------------------------------------- |
-| `npm install`            | Install or reinstall dependencies                        |
-| `npm run dev`        | Start local preview server                               |
-| `npm run build`      | Build your static site, generating `./dist`              |
-| `npm run deploy`     | Deploy your project to Observable                        |
-| `npm run clean`      | Clear the local data loader cache                        |
-| `npm run observable` | Run commands like `observable help`                      |
+| Command              | Description                                 |
+| -------------------- | ------------------------------------------- |
+| `npm install`        | Install or reinstall dependencies           |
+| `npm run dev`        | Start local preview server                  |
+| `npm run build`      | Build your static site, generating `./dist` |
+| `npm run deploy`     | Deploy your project to Observable           |
+| `npm run clean`      | Clear the local data loader cache           |
+| `npm run observable` | Run commands like `observable help`         |
