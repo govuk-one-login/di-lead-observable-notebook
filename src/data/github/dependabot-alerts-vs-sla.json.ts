@@ -72,6 +72,11 @@ type Relationship =
     | 'transitive'
     ;
 
+type Scope =
+    | 'runtime'
+    | 'development'
+    ;
+
 type CustomProperties = {
     pod?: string;
     productionAssets?: boolean;
@@ -93,6 +98,7 @@ type Alert = {
     inSla: boolean;
     relationship: Relationship;
     hasPatch: boolean;
+    scope?: Scope;
 }
 
 type AlertSummery = {
@@ -158,6 +164,7 @@ const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
         inSla,
         relationship: response.dependency.relationship,
         hasPatch: !!response.security_vulnerability.first_patched_version,
+        scope: response.dependency.scope,
     }
 }
 
