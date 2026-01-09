@@ -65,7 +65,9 @@ const formatTextWithTitle = (text) => {
 }
 ```
 
-## Alert Summaries:
+## Alerts
+
+### Summaries:
 
 This shows all alerts (collated by name) across the organisation and initially sorted by severity. You can filter alerts
 by name, or select individual alerts and the Repositories table below will be filtered to only repositories impacted by
@@ -105,7 +107,7 @@ const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
 }));
 ```
 
-## Repositories:
+### Repositories:
 
 Lists all repositories that are impacted by at least one of the above alerts, initially sorted by severity. Shows
 whether the repository is in SLA or not, and provides a link to the repository.
@@ -165,7 +167,7 @@ let selectedRepos = view(Inputs.table(repoTableData, {
 }));
 ```
 
-## Alerts for Selected Repos:
+### Alerts for Selected Repos:
 
 Selecting or filtering repositories in the above table causes this one to show only alerts for that specific repository.
 Note: this shows all alerts for that repository, not just ones matching the first table. From here you can see if the 
@@ -207,7 +209,7 @@ view(Inputs.table(flattenedAlerts, {
         severity: 'Severity',
         ageInDays: 'Age',
         inSla: 'SLA?',
-        relationship: 'Relationship',
+        relationship: 'Relation',
         hasPatch: 'Patch?',
         cpProd: 'Prod?',
     },
@@ -226,6 +228,19 @@ view(Inputs.table(flattenedAlerts, {
     },
     tableLayout: 'auto',
     maxWidth: '100%',
+    width: {
+        cpPod: '6%',
+        cpTeam: '6%',
+        repoName: '8%',
+        alertName: 'auto',
+        url: '5%',
+        severity: '6%',
+        ageInDays: '6%',
+        inSla: '5%',
+        relationship: '7%',
+        hasPatch: '5%',
+        cpProd: '5%',
+    },
 }));
 ```
 
@@ -252,10 +267,10 @@ const flatAlerts = repositories
     );
 ```
 
-Pod Leaderboard
+### Pod Leaderboard
 
 ```js
-const podLeaderboard = flatAlerts
+const podScores = flatAlerts
     .filter((alert) => !alert.inSla)
     .reduce(
         (acc, cur) => {
@@ -268,21 +283,43 @@ const podLeaderboard = flatAlerts
         {}
     );
 
-view(Inputs.table(Object.entries(podLeaderboard), {
+const podLeaderboard = Object.entries(podScores)
+    .map(([key, value], index) => ({
+        name: key,
+        outOfSla: value,
+    }))
+    .toSorted((a, b) => a.outOfSla - b.outOfSla)
+    .map((entry, index) => ({
+        pos: index + 1,
+        ...entry
+    }));
+
+const selectedPods = view(Inputs.table(podLeaderboard, {
     sort: '1',
     reverse: true,
     header: {
-        '0': 'Pod',
-        '1': 'Alerts out of SLA',
+        'pos': '#',
+        'name': 'Pod',
+        'outOfSla': '# Out of SLA',
+    },
+    maxWidth: 400,
+    maxHeight: 1200,
+    width: {
+        pos: '3%',
+        name: '67%',
+        outOfSla: '30%',
     },
 }));
 ```
 
-Team Leaderboard
+### Team Leaderboard
 
 ```js
-const teamLeaderboard = flatAlerts
+const selectedPodNames = selectedPods.map((pod) => pod.name);
+
+const teamScores = flatAlerts
     .filter((alert) => !alert.inSla)
+    .filter((repo) => selectedPodNames.includes(repo.cpPod))
     .reduce(
         (acc, cur) => {
             const name = `${cur.cpPod}: ${cur.cpTeam}`
@@ -294,12 +331,30 @@ const teamLeaderboard = flatAlerts
         {}
     );
 
-view(Inputs.table(Object.entries(teamLeaderboard), {
-    sort: '1',
-    reverse: true,
+const teamLeaderboard = Object.entries(teamScores)
+    .map(([key, value], index) => ({
+        name: key,
+        outOfSla: value,
+    }))
+    .toSorted((a, b) => a.outOfSla - b.outOfSla)
+    .map((entry, index) => ({
+        pos: index + 1,
+        ...entry
+    }));
+
+view(Inputs.table(teamLeaderboard, {
+    sort: 'pos',
     header: {
-        '0': 'Team',
-        '1': 'Alerts out of SLA',
+        'pos': '#',
+        'name': 'Team',
+        'outOfSla': '# Out of SLA',
+    },
+    maxWidth: 400,
+    maxHeight: 1200,
+    width: {
+        pos: '3%',
+        name: '67%',
+        outOfSla: '30%',
     },
 }));
 ```
