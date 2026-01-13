@@ -12,7 +12,7 @@
     "@aws-sdk/client-cloudwatch": "3.958.0",
     "@aws-sdk/client-codepipeline": "3.962.0",
     "@aws-sdk/client-ec2": "3.962.0",
-    "@aws-sdk/client-ssm": "3.964.0",
+    "@aws-sdk/client-ssm": "3.967.0",
     "@aws-sdk/credential-provider-sso": "3.958.0",
     "@observablehq/framework": "^1.13.3",
     "d3-dsv": "^3.0.1",
