@@ -9,11 +9,11 @@
     "observable": "observable"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudwatch": "3.958.0",
-    "@aws-sdk/client-codepipeline": "3.962.0",
-    "@aws-sdk/client-ec2": "3.962.0",
-    "@aws-sdk/client-ssm": "3.964.0",
-    "@aws-sdk/credential-provider-sso": "3.958.0",
+    "@aws-sdk/client-cloudwatch": "3.987.0",
+    "@aws-sdk/client-codepipeline": "3.987.0",
+    "@aws-sdk/client-ec2": "3.987.0",
+    "@aws-sdk/client-ssm": "3.987.0",
+    "@aws-sdk/credential-provider-sso": "3.972.5",
     "@observablehq/framework": "^1.13.3",
     "d3-dsv": "^3.0.1",
     "d3-time-format": "^4.1.0",
