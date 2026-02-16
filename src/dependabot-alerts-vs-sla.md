@@ -328,14 +328,14 @@ const selectedPods = view(Inputs.table(podLeaderboard, {
 const selectedPodNames = selectedPods.map((pod) => pod.name);
 
 const teamScores = flatAlerts
-    .filter((alert) => !alert.inSla)
     .filter((repo) => selectedPodNames.includes(repo.cpPod))
     .reduce(
         (acc, cur) => {
             const name = `${cur.cpPod}: ${cur.cpTeam}`
+            const outOfSla = cur.inSla ? 0 : 1;
             return {
                 ...acc,
-                [name]: acc[name] ? acc[name] + 1 : 1,
+                [name]: acc[name] ? acc[name] + outOfSla : outOfSla,
             }
         },
         {}
