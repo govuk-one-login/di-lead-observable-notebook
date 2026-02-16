@@ -62,6 +62,7 @@ type Repository = {
     alerts: Alert[],
     archived: boolean,
     maxSeverity?: Severity,
+    needsEscalation: boolean,
     inSla: boolean,
     properties: CustomProperties,
 }
@@ -96,6 +97,7 @@ type Alert = {
     createdAt: Date;
     ageInDays: number;
     inSla: boolean;
+    needsEscalation: boolean;
     relationship: Relationship;
     hasPatch: boolean;
     scope?: Scope;
@@ -106,6 +108,7 @@ type AlertSummery = {
     inRepositories: number[],
     severity: Severity,
     ageInDays: number,
+    needsEscalation: boolean,
     inSla: boolean,
     count: number,
 }
@@ -121,9 +124,20 @@ const SLA_DAYS = {
     medium: 30,
     low: 60
 };
-const isInSla = (days: number, severity: Severity) => (
-    SLA_DAYS[severity.label] > days
-)
+
+const inTimeLimit = (days: number, severity: Severity) => (
+    SLA_DAYS[severity.label] >= days
+);
+
+// Is the vulnerability in SLA
+const isInSla = (days: number, severity: Severity, hasPatch: boolean) => (
+    inTimeLimit(days, severity) || !hasPatch
+);
+
+// Do we need to escalate the SLA
+const shouldEscalate = (days: number, severity: Severity, hasPatch: boolean) => (
+    !inTimeLimit(days, severity) && !hasPatch
+);
 
 const dayInMillis = 1000 * 60 * 60 * 24;
 const calculateAgeInDays = (date: Date): number =>
@@ -135,6 +149,7 @@ const repositoryResponseToRepository = (response: RepositoryResponse): Repositor
     url: response.html_url,
     archived: response.archived ?? false,
     alerts: [],
+    needsEscalation: false,
     inSla: true,
     properties: {},
 });
@@ -144,6 +159,7 @@ const alertToNewSummary = (alert: Alert): AlertSummery => ({
     inRepositories: [alert.repositoryId],
     severity: alert.severity,
     ageInDays: alert.ageInDays,
+    needsEscalation: alert.needsEscalation,
     inSla: alert.inSla,
     count: 1,
 });
@@ -152,7 +168,8 @@ const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
     const severity = labelToSeverity(response.security_advisory.severity);
     const createdAt = new Date(response.created_at);
     const ageInDays = calculateAgeInDays(createdAt);
-    const inSla = isInSla(ageInDays, severity);
+
+    const hasPatch = !!response.security_vulnerability.first_patched_version;
     return {
         id: response.number,
         repositoryId: 0,
@@ -161,9 +178,10 @@ const alertResponseToDependabotAlert = (response: AlertResponse): Alert => {
         severity,
         createdAt,
         ageInDays,
-        inSla,
+        needsEscalation: shouldEscalate(ageInDays, severity, hasPatch),
+        inSla: isInSla(ageInDays, severity, hasPatch),
         relationship: response.dependency.relationship,
-        hasPatch: !!response.security_vulnerability.first_patched_version,
+        hasPatch,
         scope: response.dependency.scope,
     }
 }
@@ -264,6 +282,7 @@ const addAlertsToRepository = (repository: Repository, alerts: Alert[]): Alert[]
     repository.alerts = alerts.map(alert => ({...alert, repositoryId: repository.id}));
     repository.maxSeverity = alerts.map(alert => alert.severity).sort(compareSeverity)[0];
     repository.inSla = repository.inSla && alerts.every((alert) => alert.inSla);
+    repository.needsEscalation = repository.needsEscalation || alerts.some((alert) => alert.needsEscalation);
     return repository.alerts;
 }
 
@@ -278,6 +297,7 @@ const createAlertSummariser = (alertSummaries: AlertSummery[]) => (alert: Alert)
     existingAlert.inRepositories.push(alert.repositoryId);
     existingAlert.severity = mostSevere(existingAlert.severity, alert.severity);
     existingAlert.ageInDays = Math.max(existingAlert.ageInDays, alert.ageInDays);
+    existingAlert.needsEscalation = existingAlert.needsEscalation && alert.needsEscalation;
     existingAlert.inSla = existingAlert.inSla && alert.inSla;
     existingAlert.count++;
 }
