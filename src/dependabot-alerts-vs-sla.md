@@ -83,19 +83,17 @@ const alertSummariesTableData = alertSummaries
 
 const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
     sort: 'severity',
-    columns: ['name', 'severity', 'ageInDays', 'needsEscalation', 'inSla'],
+    columns: ['name', 'severity', 'ageInDays', 'inSla'],
     header: {
         name: 'Name',
         severity: 'Severity',
         ageInDays: 'Age',
-        needsEscalation: 'Esc?',
         inSla: 'In SLA',
     },
     format: {
         name: formatTextWithTitle,
         severity: formatFlatSeverity,
         ageInDays: formatDays,
-        needsEscalation: formatBoolean,
         inSla: formatBoolean,
     },
     // layout: 'auto',
@@ -104,7 +102,6 @@ const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
         name: 'auto',
         severity: '8%',
         ageInDays: '7%',
-        needsEscalation: '5%',
         inSla: '5%',
     }
 }));
@@ -139,14 +136,13 @@ const repoTableData = repositories
 
 let selectedRepos = view(Inputs.table(repoTableData, {
     sort: 'maxSeverity',
-    columns: ['cpPod', 'cpTeam', 'name', 'url', 'maxSeverity', 'needsEscalation', 'inSla', 'cpProd'],
+    columns: ['cpPod', 'cpTeam', 'name', 'url', 'maxSeverity', 'inSla', 'cpProd'],
     header: {
         cpPod: 'Pod',
         cpTeam: 'Team',
         name: 'Name',
         url: '',
         maxSeverity: 'Most Severe',
-        needsEscalation: 'Esc?',
         inSla: 'SLA?',
         cpProd: 'Prod?'
     },
@@ -156,7 +152,6 @@ let selectedRepos = view(Inputs.table(repoTableData, {
         name: formatTextWithTitle,
         url: formatLink,
         maxSeverity: formatFlatSeverity,
-        needsEscalation: formatBoolean,
         inSla: formatBoolean,
         cpProd: formatBoolean,
     },
@@ -166,7 +161,6 @@ let selectedRepos = view(Inputs.table(repoTableData, {
         name: 'auto',
         url: '5%',
         maxSeverity: '10%',
-        needsEscalation: '5%',
         inSla: '5%',
         cpProd: '5%',
     },
@@ -196,7 +190,6 @@ const flattenedAlerts = selectedRepos
             url: alert.url,
             severity: flattenSeverity(alert.severity),
             ageInDays: alert.ageInDays,
-            needsEscalation: alert.needsEscalation,
             inSla: alert.inSla,
             relationship: alert.relationship,
             hasPatch: alert.hasPatch,
@@ -215,7 +208,6 @@ view(Inputs.table(flattenedAlerts, {
         url: '',
         severity: 'Severity',
         ageInDays: 'Age',
-        needsEscalation: 'Esc?',
         inSla: 'SLA?',
         relationship: 'Relation',
         hasPatch: 'Patch?',
@@ -229,7 +221,6 @@ view(Inputs.table(flattenedAlerts, {
         url: formatLink,
         severity: formatFlatSeverity,
         ageInDays: formatDays,
-        needsEscalation: formatBoolean,
         inSla: formatBoolean,
         relationship: formatTextWithTitle,
         hasPatch: formatBoolean,
@@ -245,7 +236,6 @@ view(Inputs.table(flattenedAlerts, {
         url: '5%',
         severity: '6%',
         ageInDays: '6%',
-        needsEscalation: '5%',
         inSla: '5%',
         relationship: '7%',
         hasPatch: '5%',
