@@ -1,0 +1,403 @@
+# Dependabot Alerts vs SLAs
+
+Create your key here: https://github.com/settings/personal-access-tokens
+
+You will need a fine grain access token configured with the following:
+
+> Owner: `govuk-one-login`
+> 
+> Organisation Permissions:
+> - `Custom Properties (read)`
+> 
+> Repository Permissions:
+> - `Dependabot Alerts (read)`
+> - `Metadata (read)` (automatically added with the previous permission)
+
+The GitHub token must be provided in the a `GITHUB_TOKEN` environment variable. Getting the data currently takes over
+two minutes and that will likely only increase, so be patient. If you just need to see if the code is workin, set an
+environment variable `TEST_MODE=true` to only download 20 repositories and their associated alerts.
+
+
+```js
+// Initial Data
+const dependabotAlertsVsSla = await FileAttachment(
+  './data/github/dependabot-alerts-vs-sla.json'
+).json();
+const { repositories, alertSummaries } = dependabotAlertsVsSla;
+```
+
+```js
+// Shared code
+const flattenSeverity = (severity) => `${severity.value}-${severity.label}`;
+const flattenAlertSeverity = (alert) => ({
+    ...alert,
+    severity: alert.severity && flattenSeverity(alert.severity)
+});
+const severityLabel = {
+    critical: '‼️',
+    high: '🔴', 
+    medium: '🟠', 
+    low: '🟢',
+}
+const formatSeverityLabel = (severity) => {
+    const element = document.createElement('span');
+    element.title = severity;
+    element.textContent = severityLabel[severity];
+    return element;
+}
+const formatFlatSeverity = (severity) => {
+    const label = severity.replace(/\d+\-/, '');
+    return formatSeverityLabel(label);
+}
+const formatDays = (days) => `${days} days`;
+const formatBoolean = (bool) => bool ? '✅' : '❌';
+const formatLink = (link) => {
+    const element = document.createElement('a');
+    element.href = link;
+    element.text = 'Link';
+    return element;
+}
+const formatTextWithTitle = (text) => {
+    const element = document.createElement('span');
+    element.title = text;
+    element.textContent = text;
+    return element;
+}
+```
+
+## Alerts
+
+### Summaries:
+
+This shows all alerts (collated by name) across the organisation and initially sorted by severity. You can filter alerts
+by name, or select individual alerts and the Repositories table below will be filtered to only repositories impacted by
+those alerts.
+
+```js
+const alertName = view(Inputs.text({label: 'Alert Name', placeholder: 'Filter by name'}));
+```
+```js
+const alertSummariesTableData = alertSummaries
+    .filter((alert) => alert.name.toLocaleLowerCase().includes(alertName.toString().toLocaleLowerCase()))
+    .map(flattenAlertSeverity);
+
+const selectedAlertSummaries = view(Inputs.table(alertSummariesTableData, {
+    sort: 'severity',
+    columns: ['name', 'severity', 'ageInDays', 'inSla'],
+    header: {
+        name: 'Name',
+        severity: 'Severity',
+        ageInDays: 'Age',
+        inSla: 'In SLA',
+    },
+    format: {
+        name: formatTextWithTitle,
+        severity: formatFlatSeverity,
+        ageInDays: formatDays,
+        inSla: formatBoolean,
+    },
+    // layout: 'auto',
+    maxWidth: '100%',
+    width: {
+        name: 'auto',
+        severity: '8%',
+        ageInDays: '7%',
+        inSla: '5%',
+    }
+}));
+```
+
+### Repositories:
+
+Lists all repositories that are impacted by at least one of the above alerts, initially sorted by severity. Shows
+whether the repository is in SLA or not, and provides a link to the repository.
+
+```js
+const podName = view(Inputs.text({label: 'Pod Name', placeholder: 'Filter by name'}));
+const teamName = view(Inputs.text({label: 'Team Name', placeholder: 'Filter by name'}));
+const repoName = view(Inputs.text({label: 'Repository Name', placeholder: 'Filter by name'}));
+const productionAssets = view(Inputs.checkbox(new Map([['Production Assets Only', "prod"]])));
+```
+
+```js
+const selectedAlertNames = selectedAlertSummaries.map((alert) => alert.name);
+
+const repoTableData = repositories
+    .filter((repo) => repo.alerts.some((alert) => selectedAlertNames.includes(alert.name)))
+    .filter((repo) => repo.name.toLocaleLowerCase().includes(repoName.toString().toLocaleLowerCase()))
+    .filter((repo) => repo.properties.pod.toLocaleLowerCase().includes(podName.toString().toLocaleLowerCase()))
+    .filter((repo) => repo.properties.team.toLocaleLowerCase().includes(teamName.toString().toLocaleLowerCase()))
+    .filter((repo) => !productionAssets.includes("prod") || repo.properties.productionAssets)
+    .map((repo) => ({
+        ...repo,
+        cpPod: repo.properties.pod,
+        cpTeam: repo.properties.team,
+        cpProd: repo.properties.productionAssets,
+        maxSeverity: repo.maxSeverity && flattenSeverity(repo.maxSeverity)
+    }));
+
+let selectedRepos = view(Inputs.table(repoTableData, {
+    sort: 'maxSeverity',
+    columns: ['cpPod', 'cpTeam', 'name', 'url', 'maxSeverity', 'inSla', 'cpProd'],
+    header: {
+        cpPod: 'Pod',
+        cpTeam: 'Team',
+        name: 'Name',
+        url: '',
+        maxSeverity: 'Most Severe',
+        inSla: 'SLA?',
+        cpProd: 'Prod?'
+    },
+    format: {
+        cpPod: formatTextWithTitle,
+        cpTeam: formatTextWithTitle,
+        name: formatTextWithTitle,
+        url: formatLink,
+        maxSeverity: formatFlatSeverity,
+        inSla: formatBoolean,
+        cpProd: formatBoolean,
+    },
+    width: {
+        cpPod: '10%',
+        cpTeam: '10%',
+        name: 'auto',
+        url: '5%',
+        maxSeverity: '10%',
+        inSla: '5%',
+        cpProd: '5%',
+    },
+}));
+```
+
+### Alerts for Selected Repos:
+
+Selecting or filtering repositories in the above table causes this one to show only alerts for that specific repository.
+Note: this shows all alerts for that repository, not just ones matching the first table. From here you can see if the 
+alert is within SLA, whether the alert is on a direct dependency or transitive dependency (a dependency of a dependency)
+and whether there is a patch for the alert. There is also a link to take you straight to the Dependabot alert page for
+the alert on that specific repo.
+
+```js
+const selectedRepoNames = selectedRepos.map((repo) => repo.name);
+
+// Flatten the alerts
+const flattenedAlerts = selectedRepos
+    .filter((repo) => selectedRepoNames.includes(repo.name))
+    .flatMap((repo) => 
+        repo.alerts.map((alert) => ({
+            cpPod: repo.properties.pod,
+            cpTeam: repo.properties.team,
+            repoName: repo.name,
+            alertName: alert.name,
+            url: alert.url,
+            severity: flattenSeverity(alert.severity),
+            ageInDays: alert.ageInDays,
+            inSla: alert.inSla,
+            relationship: alert.relationship,
+            hasPatch: alert.hasPatch,
+            cpProd: repo.properties.productionAssets,
+        }))
+    )
+    .filter((alert) => selectedAlertNames.includes(alert.alertName));
+
+view(Inputs.table(flattenedAlerts, {
+    sort: 'severity',
+    header: {
+        cpPod: 'Pod',
+        cpTeam: 'Team',
+        repoName: 'Repository',
+        alertName: 'Alert',
+        url: '',
+        severity: 'Severity',
+        ageInDays: 'Age',
+        inSla: 'SLA?',
+        relationship: 'Relation',
+        hasPatch: 'Patch?',
+        cpProd: 'Prod?',
+    },
+    format: {
+        cpPod: formatTextWithTitle,
+        cpTeam: formatTextWithTitle,
+        repoName: formatTextWithTitle,
+        alertName: formatTextWithTitle,
+        url: formatLink,
+        severity: formatFlatSeverity,
+        ageInDays: formatDays,
+        inSla: formatBoolean,
+        relationship: formatTextWithTitle,
+        hasPatch: formatBoolean,
+        cpProd: formatBoolean,
+    },
+    tableLayout: 'auto',
+    maxWidth: '100%',
+    width: {
+        cpPod: '6%',
+        cpTeam: '6%',
+        repoName: '8%',
+        alertName: 'auto',
+        url: '5%',
+        severity: '6%',
+        ageInDays: '6%',
+        inSla: '5%',
+        relationship: '7%',
+        hasPatch: '5%',
+        cpProd: '5%',
+    },
+}));
+```
+
+### Summary
+
+
+```js
+const inSla = [];
+const outOfSla = [];
+flattenedAlerts.forEach((alert) => {
+    alert.inSla ? inSla.push(alert) : outOfSla.push(alert);
+}) 
+
+const summaryBase = () => ({
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+});
+
+const summaryReducer = (summary, alert) => {
+    switch (alert.severity.replace(/\d+\-/, '')) {
+        case 'critical':
+            return { ...summary, critical: summary.critical + 1 }
+        case 'high':
+            return { ...summary, high: summary.high + 1 }
+        case 'medium':
+            return { ...summary, medium: summary.medium + 1 }
+        case 'low':[]
+            return { ...summary, low: summary.low + 1 }
+        default:
+            return summary;
+    } 
+};
+
+const summary = [
+    {'': 'Total', ...flattenedAlerts.reduce(summaryReducer, summaryBase())},
+    {'': 'In SLA', ...inSla.reduce(summaryReducer, summaryBase())},
+    {'': 'Out of SLA', ...outOfSla.reduce(summaryReducer, summaryBase())},
+];
+
+view(Inputs.table(summary));
+```
+
+## Leaderboards
+
+Shows how many alerts are out of SLA:
+
+```js
+const flatAlerts = repositories
+    .flatMap((repo) =>
+        repo.alerts.map((alert) => ({
+            cpPod: repo.properties.pod,
+            cpTeam: repo.properties.team,
+            repoName: repo.name,
+            alertName: alert.name,
+            url: alert.url,
+            severity: flattenSeverity(alert.severity),
+            ageInDays: alert.ageInDays,
+            inSla: alert.inSla,
+            relationship: alert.relationship,
+            hasPatch: alert.hasPatch,
+            cpProd: repo.properties.productionAssets,
+        }))
+    );
+```
+
+### Pod Leaderboard
+
+```js
+const podScores = flatAlerts
+    .filter((alert) => !alert.inSla)
+    .reduce(
+        (acc, cur) => {
+            const name = cur.cpPod;
+            return {
+                ...acc,
+                [name]: acc[name] ? acc[name] + 1 : 1,
+            }
+        },
+        {}
+    );
+
+const podLeaderboard = Object.entries(podScores)
+    .map(([key, value], index) => ({
+        name: key,
+        outOfSla: value,
+    }))
+    .toSorted((a, b) => a.outOfSla - b.outOfSla)
+    .map((entry, index) => ({
+        pos: index + 1,
+        ...entry
+    }));
+
+const selectedPods = view(Inputs.table(podLeaderboard, {
+    sort: '1',
+    reverse: true,
+    header: {
+        'pos': '#',
+        'name': 'Pod',
+        'outOfSla': '# Out of SLA',
+    },
+    maxWidth: 400,
+    maxHeight: 1200,
+    width: {
+        pos: '3%',
+        name: '67%',
+        outOfSla: '30%',
+    },
+}));
+```
+
+### Team Leaderboard
+
+```js
+const selectedPodNames = selectedPods.map((pod) => pod.name);
+
+const teamScores = flatAlerts
+    .filter((repo) => selectedPodNames.includes(repo.cpPod))
+    .reduce(
+        (acc, cur) => {
+            const name = `${cur.cpPod}: ${cur.cpTeam}`
+            const outOfSla = cur.inSla ? 0 : 1;
+            return {
+                ...acc,
+                [name]: acc[name] ? acc[name] + outOfSla : outOfSla,
+            }
+        },
+        {}
+    );
+
+const teamLeaderboard = Object.entries(teamScores)
+    .map(([key, value], index) => ({
+        name: key,
+        outOfSla: value,
+    }))
+    .toSorted((a, b) => a.outOfSla - b.outOfSla)
+    .map((entry, index) => ({
+        pos: index + 1,
+        ...entry
+    }));
+
+view(Inputs.table(teamLeaderboard, {
+    sort: 'pos',
+    header: {
+        'pos': '#',
+        'name': 'Team',
+        'outOfSla': '# Out of SLA',
+    },
+    maxWidth: 400,
+    maxHeight: 1200,
+    width: {
+        pos: '3%',
+        name: '67%',
+        outOfSla: '30%',
+    },
+}));
+```
