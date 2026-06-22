@@ -116,6 +116,7 @@ whether the repository is in SLA or not, and provides a link to the repository.
 const podName = view(Inputs.text({label: 'Pod Name', placeholder: 'Filter by name'}));
 const teamName = view(Inputs.text({label: 'Team Name', placeholder: 'Filter by name'}));
 const repoName = view(Inputs.text({label: 'Repository Name', placeholder: 'Filter by name'}));
+const productionAssets = view(Inputs.checkbox(new Map([['Production Assets Only', "prod"]])));
 ```
 
 ```js
@@ -126,6 +127,7 @@ const repoTableData = repositories
     .filter((repo) => repo.name.toLocaleLowerCase().includes(repoName.toString().toLocaleLowerCase()))
     .filter((repo) => repo.properties.pod.toLocaleLowerCase().includes(podName.toString().toLocaleLowerCase()))
     .filter((repo) => repo.properties.team.toLocaleLowerCase().includes(teamName.toString().toLocaleLowerCase()))
+    .filter((repo) => !productionAssets.includes("prod") || repo.properties.productionAssets)
     .map((repo) => ({
         ...repo,
         cpPod: repo.properties.pod,
@@ -242,6 +244,47 @@ view(Inputs.table(flattenedAlerts, {
         cpProd: '5%',
     },
 }));
+```
+
+### Summary
+
+
+```js
+const inSla = [];
+const outOfSla = [];
+flattenedAlerts.forEach((alert) => {
+    alert.inSla ? inSla.push(alert) : outOfSla.push(alert);
+}) 
+
+const summaryBase = () => ({
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+});
+
+const summaryReducer = (summary, alert) => {
+    switch (alert.severity.replace(/\d+\-/, '')) {
+        case 'critical':
+            return { ...summary, critical: summary.critical + 1 }
+        case 'high':
+            return { ...summary, high: summary.high + 1 }
+        case 'medium':
+            return { ...summary, medium: summary.medium + 1 }
+        case 'low':[]
+            return { ...summary, low: summary.low + 1 }
+        default:
+            return summary;
+    } 
+};
+
+const summary = [
+    {'': 'Total', ...flattenedAlerts.reduce(summaryReducer, summaryBase())},
+    {'': 'In SLA', ...inSla.reduce(summaryReducer, summaryBase())},
+    {'': 'Out of SLA', ...outOfSla.reduce(summaryReducer, summaryBase())},
+];
+
+view(Inputs.table(summary));
 ```
 
 ## Leaderboards
